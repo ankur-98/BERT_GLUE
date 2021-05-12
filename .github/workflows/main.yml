@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Colab Badge Action 
-        uses: trsvchn/colab-badge-action@v2
+        uses: trsvchn/colab-badge-action@v3.1
         with:
           check: 'all'
           update: true
