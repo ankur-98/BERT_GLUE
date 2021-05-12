@@ -9,7 +9,6 @@ jobs:
       - name: Checkout
         id: checkout
         uses: actions/checkout@v2
-      
       - name: Colab Badge Action 
         id: badges
         uses: trsvchn/colab-badge-action@v3.1
@@ -17,8 +16,7 @@ jobs:
           check: 'all'
           update: true
           target_branch: main
-          target_repository: ankur-98/BERT_GLUE
-          	      
+          target_repository: ankur-98/BERT_GLUE     	      
       - name: Commit and Push Changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
