@@ -6,6 +6,10 @@ jobs:
     name: BERT_GLUE - Colab Button Workflow
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v2
+      
       - name: Colab Badge Action 
         id: badges
         uses: trsvchn/colab-badge-action@v3.1
@@ -14,3 +18,8 @@ jobs:
           update: true
           target_branch: main
           target_repository: ankur-98/BERT_GLUE
+          	      
+      - name: Commit and Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Add/Update Colab badges"
