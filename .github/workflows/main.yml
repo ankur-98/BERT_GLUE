@@ -3,7 +3,7 @@ on: [push]
 
 jobs:
   build:
-    name: BERT_GLUE - Workflow
+    name: BERT_GLUE - Colab Button Workflow
     runs-on: ubuntu-latest
     steps:
       - name: Colab Badge Action 
@@ -11,5 +11,5 @@ jobs:
         with:
           check: 'all'
           update: true
-          target_branch: master
+          target_branch: main
           target_repository: ankur-98/BERT_GLUE
