@@ -13,3 +13,12 @@ jobs:
           update: true
           target_branch: main
           target_repository: ankur-98/BERT_GLUE
+
+      - name: Add/Update badges
+        id: badges
+        uses: trsvchn/colab-badge-action@v3
+        with:
+          check: 'all'
+          update: true
+          target_branch: main
+          target_repository: user/user-repo
