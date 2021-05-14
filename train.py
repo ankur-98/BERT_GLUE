@@ -81,7 +81,7 @@ if __name__ == "__main__":
     model_checkpoint="bert-base-uncased"
     task = "cola"
     batch_size=64
-    steps = 200
+    steps = 2000
     lr = 1e-4
 
     # Load DataLoader
@@ -90,9 +90,10 @@ if __name__ == "__main__":
     
     # Load Pre-trained Model
     from transformers import BertForSequenceClassification
+    from model import CustomBERTModel
     print(f"\nLoading pre-trained BERT model \"{model_checkpoint}\"")
     num_labels = 3 if task.startswith("mnli") else 1 if task=="stsb" else 2
-    model = BertForSequenceClassification.from_pretrained(model_checkpoint, num_labels=num_labels).to(device)
+    model = CustomBERTModel(model_checkpoint, num_labels=num_labels).to(device)
 
     # Define optimizer and lr_scheduler
     Optimizer = create_optimizer(model, learning_rate=lr)
