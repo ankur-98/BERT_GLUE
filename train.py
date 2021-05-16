@@ -21,7 +21,7 @@ def compute_loss(model, inputs, metric=None, metric_1=None):
 
     logits = outputs["logits"] if isinstance(outputs, dict) else outputs[1]
 
-    loss = torch.nn.CrossEntropyLoss()(logits, labels)
+    loss = model.loss(logits, labels)
     
     if metric is not None: 
         metric = compute_metrics(predictions=logits, references=labels, metric=metric)
