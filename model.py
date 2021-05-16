@@ -39,6 +39,6 @@ class BERTClassifierModel(torch.nn.Module):
         # sequence_output has the following shape: (batch_size, sequence_length, 768)
         linear_output = self.linear(bert_output['last_hidden_state'][:,0,:].view(-1,768))
         if self.task == "stsb":
-            linear_output = torch.clip((self.sigmoid() * 5.5), min=0.0, max=5.0)
+            linear_output = torch.clip((self.sigmoid(linear_output) * 5.5), min=0.0, max=5.0)
         output = {"loss": self.loss, "logits":linear_output}
         return output 
