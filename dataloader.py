@@ -4,7 +4,7 @@ from transformers.data.data_collator import DataCollatorWithPadding
 from transformers import BertTokenizerFast
 
 
-def get_dataloader(task:str, model_checkpoint:str, split:str, dataloader_drop_last:bool=True,
+def get_dataloader(task:str, model_checkpoint:str, split:str, dataloader_drop_last:bool=True, shuffle:bool=False,
                    batch_size:int=16, dataloader_num_workers:int=0, dataloader_pin_memory:bool=True) -> DataLoader:
     """To create encoded dataset dataloader for a given GLUE task.
 
@@ -58,6 +58,7 @@ def get_dataloader(task:str, model_checkpoint:str, split:str, dataloader_drop_la
     print(encoded_dataset)
     dataloader = DataLoader(
                     encoded_dataset[split],
+                    shuffle=shuffle,
                     batch_size=batch_size,
                     collate_fn=data_collator,
                     drop_last=dataloader_drop_last,
