@@ -49,6 +49,11 @@ def get_dataloader(task:str, model_checkpoint:str, split:str, dataloader_drop_la
     
     columns_to_return = ['input_ids', 'label', 'attention_mask']
     encoded_dataset.set_format(type='torch', columns=columns_to_return)
+
+    if (split == "validation" or split == "test") and task == "mnli":
+        split = "validation_matched"
+    if (split == "validation" or split == "test") and task == "mnli-mm":
+        split = "validation_mismatched"
     
     print(encoded_dataset)
     dataloader = DataLoader(
