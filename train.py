@@ -2,38 +2,23 @@ from util import prepare_inputs, compute_metrics
 from typing import Any, Dict, Union
 import torch
 
-def compute_loss(model, inputs, metric=None, metric_1=None):
+def compute_loss(model, inputs):
     """
-    How the loss is computed by Trainer. By default, all models return the loss in the first element.
-
-    Subclass and override for custom behavior.
+    
     """
     if "labels" in inputs:
         labels = inputs.pop("labels")
-    
     outputs = model(**inputs)
 
-    # We don't use .loss here since the model may return tuples instead of ModelOutput.
-    try:
-        loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
-    except KeyError:
-        loss = outputs.loss
-
-    logits = outputs["logits"] if isinstance(outputs, dict) else outputs[1]
-
+    logits = outputs["logits"]
     loss = model.loss(logits, labels)
+    metric, metric_1 = model.compute_metrics(predictions=logits, references=labels)
     
-    if metric is not None: 
-        metric = compute_metrics(predictions=logits, references=labels, metric=metric)
-    if metric_1 is not None: 
-        metric_1 = compute_metrics(predictions=logits, references=labels, metric=metric_1)
-
     return (loss, metric, metric_1)
 
 
 def training_step(model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]],
-                  optimizer: torch.optim.Optimizer, lr_scheduler: torch.optim.lr_scheduler, 
-                  metric: Any=None, metric_1: Any=None) -> torch.Tensor:
+                  optimizer: torch.optim.Optimizer, lr_scheduler: torch.optim.lr_scheduler) -> torch.Tensor:
     """
     Perform a training step on a batch of inputs.
 
@@ -48,8 +33,6 @@ def training_step(model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, 
             Optimizer instance for the training loop.
         lr_scheduler (torch.optim.lr_scheduler): 
             LR scheduler instance for the training loop.
-        metric (Optional): Metric class forward funtion.
-        metric_1 (Optional): Second metric class forward funtion.
 
             The dictionary will be unpacked before being fed to the model. Most models expect the targets under the
             argument :obj:`labels`. Check your model's documentation for all accepted arguments.
@@ -58,10 +41,8 @@ def training_step(model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, 
         :obj:`torch.Tensor`: The tensor with training loss on this batch.
     """
     model.train()
-
     model.zero_grad()
-    loss, metric, metric_1 = compute_loss(model, inputs, metric, metric_1)
-    
+    loss, metric, metric_1 = compute_loss(model, inputs)
     loss.backward()
     optimizer.step()
     lr_scheduler.step()
@@ -69,8 +50,7 @@ def training_step(model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, 
     return loss.detach(), metric, metric_1
 
 
-def eval_step(model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]],
-              metric: Any=None, metric_1: Any=None) -> torch.Tensor:
+def eval_step(model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
     """
     Perform a training step on a batch of inputs.
 
@@ -85,8 +65,6 @@ def eval_step(model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]
             Optimizer instance for the training loop.
         lr_scheduler (torch.optim.lr_scheduler): 
             LR scheduler instance for the training loop.
-        metric (Optional): Metric class forward funtion.
-        metric_1 (Optional): Second metric class forward funtion.
 
             The dictionary will be unpacked before being fed to the model. Most models expect the targets under the
             argument :obj:`labels`. Check your model's documentation for all accepted arguments.
@@ -95,9 +73,8 @@ def eval_step(model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]
         :obj:`torch.Tensor`: The tensor with training loss on this batch.
     """
     model.eval()
-
     model.zero_grad()
-    loss, metric, metric_1 = compute_loss(model, inputs, metric, metric_1)
+    loss, metric, metric_1 = compute_loss(model, inputs)
 
     return loss.detach(), metric, metric_1
 
@@ -123,7 +100,6 @@ if __name__ == "__main__":
     eval_epoch_iterator = get_dataloader(task, model_checkpoint, "validation", batch_size=batch_size)
     
     # Load Pre-trained Model
-    from transformers import BertForSequenceClassification
     from model import CustomBERTModel
     print(f"\nLoading pre-trained BERT model \"{model_checkpoint}\"")
     num_labels = 3 if task.startswith("mnli") else 1 if task=="stsb" else 2
@@ -132,7 +108,6 @@ if __name__ == "__main__":
     # Define optimizer and lr_scheduler
     Optimizer = create_optimizer(model, learning_rate=lr)
     LR_scheduler = create_scheduler(Optimizer)
-    Metric, Metric_1 = get_metrics(task)
     tr_loss = torch.tensor(0.0).to(device)
     eval_loss = torch.tensor(0.0).to(device)
     tr_metric = []
@@ -153,16 +128,16 @@ if __name__ == "__main__":
             pbar.update()
             
             inputs = prepare_inputs(iterator.next(), device)
-            step_loss, step_metric, step_metric_1 = training_step(model, inputs, Optimizer, LR_scheduler, Metric, Metric_1)
+            step_loss, step_metric, step_metric_1 = training_step(model, inputs, Optimizer, LR_scheduler)
             tr_loss += step_loss
             tr_metric.append(torch.tensor(list(step_metric.values())[0]))
-            if Metric_1 is not None: tr_metric_1.append(torch.tensor(list(step_metric_1.values())[0]))
+            if model.metric_1 is not None: tr_metric_1.append(torch.tensor(list(step_metric_1.values())[0]))
             
             step_evaluation = {}
             step_evaluation['loss'] = (tr_loss/global_steps).item()
-            step_evaluation[f"{Metric.__class__.__name__}"] = torch.stack(tr_metric)[-1:].mean().item()
-            if Metric_1 is not None:
-                step_evaluation[f"{Metric_1.__class__.__name__}"] = torch.stack(tr_metric_1)[-1:].mean().item()
+            step_evaluation[f"{model.metric.__class__.__name__}"] = torch.stack(tr_metric)[-1:].mean().item()
+            if model.metric_1 is not None:
+                step_evaluation[f"{model.metric_1.__class__.__name__}"] = torch.stack(tr_metric_1)[-1:].mean().item()
             pbar.set_postfix(step_evaluation)
             
             if global_steps == steps: 
@@ -181,16 +156,16 @@ if __name__ == "__main__":
         pbar.update()
         
         inputs = prepare_inputs(iterator.next(), device)
-        step_loss, step_metric, step_metric_1 = eval_step(model, inputs, Metric, Metric_1)
+        step_loss, step_metric, step_metric_1 = eval_step(model, inputs)
         eval_loss += step_loss
         eval_metric.append(torch.tensor(list(step_metric.values())[0]))
-        if Metric_1 is not None: eval_metric_1.append(torch.tensor(list(step_metric_1.values())[0]))
+        if model.metric_1 is not None: eval_metric_1.append(torch.tensor(list(step_metric_1.values())[0]))
         
         step_evaluation = {}
         step_evaluation['loss'] = (eval_loss/global_steps).item()
-        step_evaluation[f"{Metric.__class__.__name__}"] = torch.stack(eval_metric).mean().item()
-        if Metric_1 is not None:
-            step_evaluation[f"{Metric_1.__class__.__name__}"] = torch.stack(eval_metric_1).mean().item()
+        step_evaluation[f"{model.metric.__class__.__name__}"] = torch.stack(eval_metric).mean().item()
+        if model.metric_1 is not None:
+            step_evaluation[f"{model.metric_1.__class__.__name__}"] = torch.stack(eval_metric_1).mean().item()
         pbar.set_postfix(step_evaluation)
         
         if global_steps == steps: 
